@@ -1,0 +1,80 @@
+/* ==========================================================================
+   ESTILOS PERSONALIZADOS - PUNTO MODELO POS ( PALETA CORONA )
+   ========================================================================== */
+
+:root {
+  --corona-blue: #0B2341;
+  --corona-blue-light: #1E3A8A;
+  --corona-gold: #FDB913;
+  --corona-gold-hover: #D99B0C;
+  --corona-bg: #F8FAFC;
+}
+
+body {
+  background-color: var(--corona-bg);
+  color: #1E293B;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Colores personalizados Marca Corona */
+.bg-corona-blue { background-color: var(--corona-blue); }
+.bg-corona-gold { background-color: var(--corona-gold); }
+.hover\:bg-corona-gold-hover:hover { background-color: var(--corona-gold-hover); }
+.text-corona-gold { color: var(--corona-gold); }
+.text-corona-blue { color: var(--corona-blue); }
+.border-corona-gold { border-color: var(--corona-gold); }
+
+/* Scrollbars limpios */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* ==========================================================================
+   REGLAS DE IMPRESIÓN Y TICKET
+   ========================================================================== */
+
+/* Ocultar el área de impresión por completo en pantalla normal */
+#print-area {
+  display: none !important;
+}
+
+/* Comportamiento al enviar a imprimir (window.print) */
+@media print {
+  /* 1. Ocultar absolutamente toda la interfaz del navegador/POS */
+  body * { 
+    visibility: hidden !important; 
+  }
+  
+  /* 2. Mostrar única y exclusivamente el contenedor del ticket o reporte */
+  #print-area, 
+  #print-area * { 
+    visibility: visible !important; 
+  }
+  
+  /* 3. Posicionar el área de impresión en la esquina superior izquierda */
+  #print-area { 
+    display: block !important; 
+    position: absolute !important; 
+    left: 0 !important; 
+    top: 0 !important; 
+    width: 100% !important; 
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* 4. Ocultar cualquier elemento marcado explícitamente con no-print */
+  .no-print { 
+    display: none !important; 
+  }
+}

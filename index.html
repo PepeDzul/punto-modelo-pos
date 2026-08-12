@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema POS - Punto Modelo (Corona)</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Estilos Custom Corona -->
+  <link rel="stylesheet" href="css/styles.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            coronaBlue: '#0B2341',
+            coronaGold: '#FDB913',
+            coronaGoldHover: '#D99B0C'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Reglas de impresión para miniprinters y reportes */
+    @media print {
+      body * {
+        visibility: hidden !important;
+      }
+      #print-area, #print-area * {
+        visibility: visible !important;
+      }
+      #print-area {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-100 font-sans antialiased h-screen flex flex-col overflow-hidden">
+
+  <!-- ========================================== -->
+  <!-- MODAL PANTALLA DE LOGIN                    -->
+  <!-- ========================================== -->
+  <div id="login-overlay" class="fixed inset-0 bg-coronaBlue z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 border-t-8 border-coronaGold">
+      <div class="text-center mb-6">
+        <div class="inline-flex items-center justify-center w-16 h-16 bg-coronaBlue text-coronaGold rounded-full mb-3 shadow-lg">
+          <i class="fa-solid fa-beer-mug-empty text-3xl"></i>
+        </div>
+        <h2 class="text-2xl font-black text-coronaBlue tracking-wide">PUNTO MODELO POS</h2>
+        <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mt-1">Iniciar Sesión de Sistema</p>
+      </div>
+
+      <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Usuario</label>
+          <div class="relative">
+            <i class="fa-solid fa-user absolute left-3 top-3 text-gray-400"></i>
+            <input type="text" id="login-user" required placeholder="admin / cajero" class="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-coronaGold focus:outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Contraseña</label>
+          <div class="relative">
+            <i class="fa-solid fa-lock absolute left-3 top-3 text-gray-400"></i>
+            <input type="password" id="login-pass" required placeholder="••••••••" class="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-coronaGold focus:outline-none">
+          </div>
+        </div>
+
+        <div id="login-error" class="text-xs text-red-600 font-bold text-center hidden"></div>
+
+        <button type="submit" class="w-full bg-coronaGold hover:bg-coronaGoldHover text-coronaBlue font-black py-3 rounded-lg shadow-md transition transform active:scale-95 flex items-center justify-center">
+          <i class="fa-solid fa-right-to-bracket mr-2"></i>INGRESAR AL POS
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- HEADER / BARRA DE NAVEGACIÓN PRINCIPAL     -->
+  <!-- ========================================== -->
+  <header class="bg-coronaBlue text-white shadow-md no-print border-b-4 border-coronaGold shrink-0">
+    <div class="max-w-7xl mx-auto px-4 py-2.5 flex justify-between items-center">
+      <div class="flex items-center space-x-3">
+        <div class="bg-coronaGold text-coronaBlue p-2 rounded-lg font-black">
+          <i class="fa-solid fa-store text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-black tracking-wide leading-none text-white">PUNTO MODELO</h1>
+          <span class="text-xs text-coronaGold font-bold">ABARROTES Y CERVEZAS</span>
+        </div>
+      </div>
+
+      <!-- Navegación de Pestañas -->
+      <nav class="flex space-x-1 sm:space-x-2">
+        <button onclick="switchTab('pos')" id="tab-pos" class="tab-btn px-3.5 py-2 rounded-lg font-bold text-xs uppercase bg-coronaGold text-coronaBlue transition shadow">
+          <i class="fa-solid fa-cash-register mr-1.5"></i>Ventas
+        </button>
+        <button onclick="switchTab('inventory')" id="tab-inventory" class="tab-btn px-3.5 py-2 rounded-lg font-bold text-xs uppercase hover:bg-blue-900 text-white transition">
+          <i class="fa-solid fa-boxes-stacked mr-1.5"></i>Inventario
+        </button>
+        <button onclick="switchTab('corte')" id="tab-corte" class="tab-btn px-3.5 py-2 rounded-lg font-bold text-xs uppercase hover:bg-blue-900 text-white transition">
+          <i class="fa-solid fa-receipt mr-1.5"></i>Corte Z
+        </button>
+        <button onclick="switchTab('reports')" id="tab-reports" class="tab-btn admin-only px-3.5 py-2 rounded-lg font-bold text-xs uppercase hover:bg-blue-900 text-white transition">
+          <i class="fa-solid fa-chart-line mr-1.5"></i>Reportes
+        </button>
+      </nav>
+
+      <!-- Usuario y Logout -->
+      <div class="flex items-center space-x-3 border-l border-blue-800 pl-4">
+        <div class="text-right">
+          <p id="user-display-name" class="text-xs font-bold text-white">Cajero</p>
+          <p id="user-display-role" class="text-[10px] font-bold text-coronaGold uppercase">CAJERO</p>
+        </div>
+        <button onclick="logout()" class="text-gray-300 hover:text-coronaGold p-1.5 rounded-lg transition" title="Cerrar Sesión">
+          <i class="fa-solid fa-right-from-bracket text-lg"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================== -->
+  <!-- CONTENEDOR PRINCIPAL                      -->
+  <!-- ========================================== -->
+  <main class="flex-1 overflow-hidden max-w-7xl w-full mx-auto p-4 flex flex-col">
+
+    <!-- SECCIÓN 1: VENTAS (POS) -->
+    <section id="sec-pos" class="h-full grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
+      
+      <!-- Búsqueda y Catálogo -->
+      <div class="lg:col-span-7 flex flex-col bg-white rounded-xl shadow-sm border border-gray-200 p-4 overflow-hidden">
+        <div class="flex gap-2 mb-4 shrink-0">
+          <div class="relative flex-1">
+            <i class="fa-solid fa-barcode absolute left-3 top-3 text-gray-400"></i>
+            <input 
+              type="text" 
+              id="pos-search" 
+              oninput="toggleClearSearch(this)" 
+              placeholder="Buscar código o nombre..." 
+              class="w-full pl-10 pr-10 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-coronaGold"
+            >
+            <button 
+              id="btn-clear-pos-search" 
+              type="button" 
+              onclick="clearPOSSearch()" 
+              class="hidden absolute right-3 top-2.5 text-gray-400 hover:text-gray-700 font-bold"
+            >
+              <i class="fa-solid fa-xmark text-base"></i>
+            </button>
+          </div>
+          <select id="pos-category-filter" onchange="filterPOSProducts()" class="border rounded-lg px-3 py-2 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-coronaGold font-semibold">
+            <option value="ALL">Todas las Categorías</option>
+            <option value="Cervezas">Cervezas</option>
+            <option value="Refrescos">Refrescos</option>
+            <option value="Botanas">Botanas</option>
+            <option value="Licores">Licores</option>
+            <option value="Otros">Otros</option>
+          </select>
+        </div>
+
+        <div id="pos-products-grid" class="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-3 pr-1">
+          <!-- Render dinámico -->
+        </div>
+      </div>
+
+      <!-- Ticket y Carrito -->
+      <div class="lg:col-span-5 flex flex-col bg-white rounded-xl shadow-sm border border-gray-200 p-4 overflow-hidden max-h-full">
+        <h2 class="text-base font-bold text-coronaBlue pb-2 flex items-center justify-between border-b shrink-0">
+          <span><i class="fa-solid fa-cart-shopping text-coronaGold mr-2"></i>Ticket de Venta</span>
+          <button onclick="clearCart()" class="text-xs text-red-500 hover:text-red-700 font-semibold">
+            <i class="fa-solid fa-trash mr-1"></i>Vaciar
+          </button>
+        </h2>
+
+        <!-- Tabla de ítems con Scroll independiente -->
+        <div class="flex-1 overflow-y-auto my-2 border rounded-lg min-h-[150px]">
+          <table class="w-full text-xs text-left">
+            <thead class="text-[11px] text-gray-600 uppercase bg-gray-50 sticky top-0 font-bold border-b z-10">
+              <tr>
+                <th class="py-2 px-2 bg-gray-50">Producto</th>
+                <th class="py-2 px-1 text-center bg-gray-50">Cant.</th>
+                <th class="py-2 px-1 text-right bg-gray-50">Precio</th>
+                <th class="py-2 px-1 text-right bg-gray-50">Subtotal</th>
+                <th class="py-2 px-1 text-center bg-gray-50"></th>
+              </tr>
+            </thead>
+            <tbody id="cart-table-body">
+              <!-- Render dinámico -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Panel Fijo Inferior (Calculadora + Totales + Botón Cobrar) -->
+        <div class="shrink-0 space-y-2 pt-1 border-t border-gray-100">
+          <!-- Calculadora de Porcentaje -->
+          <div class="bg-blue-50 p-2.5 rounded-lg border border-blue-100">
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs font-bold text-coronaBlue flex items-center">
+                <i class="fa-solid fa-percent text-coronaGold mr-1.5"></i>Ajuste / Descuento:
+              </label>
+              <select id="discount-type" onchange="renderCart()" class="text-xs border rounded px-1.5 py-0.5 bg-white text-gray-700 font-semibold">
+                <option value="DISCOUNT">Descuento (-)</option>
+                <option value="SURCHARGE">Recargo (+)</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="relative flex-1">
+                <input type="number" id="discount-percent" value="0" min="0" max="100" step="0.5" oninput="onDiscountInput()" class="w-full text-sm font-bold border rounded px-2 py-1 text-right pr-6 focus:outline-none focus:ring-1 focus:ring-coronaGold">
+                <span class="absolute right-2 top-1 text-xs font-bold text-gray-500">%</span>
+              </div>
+              <button onclick="setDiscountPercent(0)" class="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded font-bold">0%</button>
+              <button onclick="setDiscountPercent(5)" class="text-xs bg-amber-100 hover:bg-amber-200 text-amber-900 px-2 py-1 rounded font-bold">5%</button>
+              <button onclick="setDiscountPercent(10)" class="text-xs bg-amber-100 hover:bg-amber-200 text-amber-900 px-2 py-1 rounded font-bold">10%</button>
+            </div>
+          </div>
+
+          <!-- Totales -->
+          <div>
+            <div class="flex justify-between items-center text-xs text-gray-500 mb-0.5">
+              <span>Subtotal Base:</span>
+              <span id="cart-subtotal-base" class="font-bold text-gray-700">$0.00</span>
+            </div>
+            <div id="cart-discount-row" class="flex justify-between items-center text-xs text-amber-600 mb-0.5 hidden">
+              <span id="cart-discount-label">Ajuste (0%):</span>
+              <span id="cart-discount-val" class="font-bold">$0.00</span>
+            </div>
+            <div class="flex justify-between items-center text-xs text-gray-600 mb-1">
+              <span>Artículos Totales:</span>
+              <span id="cart-item-count" class="font-bold text-gray-800">0</span>
+            </div>
+            <div class="flex justify-between items-center text-2xl font-black text-coronaBlue mb-2">
+              <span>Total:</span>
+              <span id="cart-total">$0.00</span>
+            </div>
+
+            <button onclick="openPaymentModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 px-4 rounded-xl shadow-md transition text-base flex items-center justify-center">
+              <i class="fa-solid fa-cash-register mr-2"></i>COBRAR (F2)
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 2: INVENTARIO -->
+    <section id="sec-inventory" class="h-full hidden flex-col bg-white rounded-xl shadow-sm border border-gray-200 p-4 overflow-hidden">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 shrink-0">
+        <h2 class="text-lg font-bold text-coronaBlue flex items-center">
+          <i class="fa-solid fa-boxes-stacked text-coronaGold mr-2"></i>Catálogo e Inventario
+        </h2>
+        
+        <div class="flex gap-2 w-full sm:w-auto">
+          <input type="text" id="inv-search" onkeyup="renderInventoryTable()" placeholder="Buscar por código o nombre..." class="border rounded-lg px-3 py-1.5 text-sm w-full sm:w-64 focus:ring-1 focus:ring-coronaGold">
+          
+          <button onclick="exportInventoryToCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-2 rounded-lg transition flex items-center shadow-sm">
+            <i class="fa-solid fa-file-excel mr-1.5"></i>CSV
+          </button>
+
+          <button onclick="openProductModal()" class="admin-only bg-coronaBlue hover:bg-blue-900 text-coronaGold text-xs font-bold px-4 py-2 rounded-lg transition flex items-center shadow-sm">
+            <i class="fa-solid fa-plus mr-1"></i>Nuevo
+          </button>
+        </div>
+      </div>
+
+      <div class="flex-1 overflow-y-auto border rounded-lg">
+        <table class="w-full text-xs text-left text-gray-600">
+          <thead class="text-xs text-coronaBlue uppercase bg-blue-50 sticky top-0 font-bold border-b z-10">
+            <tr>
+              <th class="py-3 px-4 bg-blue-50">SKU / Código</th>
+              <th class="py-3 px-4 bg-blue-50">Producto</th>
+              <th class="py-3 px-4 bg-blue-50">Categoría</th>
+              <th class="py-3 px-4 text-right bg-blue-50">Costo</th>
+              <th class="py-3 px-4 text-right bg-blue-50">Precio</th>
+              <th class="py-3 px-4 text-center bg-blue-50">Stock</th>
+              <th class="py-3 px-4 text-center admin-only bg-blue-50">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="inventory-table-body">
+            <!-- Render dinámico -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 3: CORTE DE CAJA -->
+    <section id="sec-corte" class="h-full hidden overflow-y-auto space-y-4 pr-1">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-coronaGold">
+          <h3 class="text-gray-500 text-xs font-bold uppercase">Fondo Inicial</h3>
+          <p id="corte-fondo-inicial" class="text-2xl font-black text-coronaBlue">$0.00</p>
+          <button onclick="setFondoInicial()" class="mt-1 text-xs text-blue-600 hover:underline font-bold">Ajustar fondo</button>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-emerald-500">
+          <h3 class="text-gray-500 text-xs font-bold uppercase">Ventas Efectivo</h3>
+          <p id="corte-ventas-efectivo" class="text-2xl font-black text-emerald-600">$0.00</p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-indigo-500">
+          <h3 class="text-gray-500 text-xs font-bold uppercase">Ventas Tarjeta</h3>
+          <p id="corte-ventas-tarjeta" class="text-2xl font-black text-indigo-600">$0.00</p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-coronaBlue">
+          <h3 class="text-gray-500 text-xs font-bold uppercase">Efectivo Estimado</h3>
+          <p id="corte-total-caja" class="text-2xl font-black text-coronaBlue">$0.00</p>
+        </div>
+      </div>
+
+      <!-- Movimientos Manuales -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+        <h3 class="text-sm font-bold text-coronaBlue mb-3 uppercase">Entradas y Salidas de Efectivo</h3>
+        <div class="flex gap-2 mb-4">
+          <input type="number" id="mov-monto" placeholder="Monto $" class="border rounded-lg px-3 py-1.5 text-xs w-28">
+          <input type="text" id="mov-concepto" placeholder="Concepto (ej. Pago proveedor hielo)" class="border rounded-lg px-3 py-1.5 text-xs flex-1">
+          <button onclick="addMovimiento('ENTRADA')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold">+ Entrada</button>
+          <button onclick="addMovimiento('SALIDA')" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold">- Salida</button>
+        </div>
+
+        <div class="max-h-40 overflow-y-auto border rounded-lg">
+          <table class="w-full text-xs text-left">
+            <thead class="bg-gray-50 text-gray-600 font-bold uppercase border-b sticky top-0 z-10">
+              <tr>
+                <th class="py-2 px-3 bg-gray-50">Hora</th>
+                <th class="py-2 px-3 bg-gray-50">Tipo</th>
+                <th class="py-2 px-3 bg-gray-50">Concepto</th>
+                <th class="py-2 px-3 text-right bg-gray-50">Monto</th>
+              </tr>
+            </thead>
+            <tbody id="movimientos-table-body">
+              <!-- Render dinámico -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Cierre Z -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center">
+        <div>
+          <h3 class="font-bold text-coronaBlue text-sm">Cierre de Caja (Corte Z)</h3>
+          <p class="text-xs text-gray-500">Genera el balance final y cierra el turno activo.</p>
+        </div>
+        <button onclick="realizarCorteCaja()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-5 rounded-lg shadow text-xs uppercase">
+          Finalizar y Cerrar Turno
+        </button>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 4: REPORTES (Solo Admin) -->
+    <section id="sec-reports" class="h-full hidden overflow-y-auto space-y-6 pr-1">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-coronaGold">
+          <p class="text-xs text-gray-500 uppercase font-bold">Ventas Totales</p>
+          <p id="rep-total-ventas" class="text-2xl font-black text-coronaBlue">$0.00</p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-emerald-500">
+          <p class="text-xs text-gray-500 uppercase font-bold">Ganancia Estimada</p>
+          <p id="rep-total-ganancia" class="text-2xl font-black text-emerald-600">$0.00</p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-500">
+          <p class="text-xs text-gray-500 uppercase font-bold">Tickets Emitidos</p>
+          <p id="rep-total-tickets" class="text-2xl font-black text-blue-600">0</p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-purple-500">
+          <p class="text-xs text-gray-500 uppercase font-bold">Ticket Promedio</p>
+          <p id="rep-ticket-promedio" class="text-2xl font-black text-purple-600">$0.00</p>
+        </div>
+      </div>
+
+      <!-- Métodos de Pago Comparativo -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+        <div class="flex justify-between items-center mb-4 border-b pb-3">
+          <h3 class="text-base font-bold text-coronaBlue"><i class="fa-solid fa-wallet text-coronaGold mr-2"></i>Reporte de Métodos de Pago</h3>
+          <div class="flex gap-2">
+            <button onclick="exportPaymentReportToCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg">CSV</button>
+            <button onclick="printReportFromView()" class="bg-coronaBlue hover:bg-blue-900 text-white text-xs font-bold px-3 py-1.5 rounded-lg"><i class="fa-solid fa-print mr-1"></i>Imprimir PDF</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+            <span class="text-xs font-bold uppercase text-emerald-800">Efectivo</span>
+            <p id="pm-cash-total" class="text-3xl font-black text-emerald-700">$0.00</p>
+          </div>
+          <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
+            <span class="text-xs font-bold uppercase text-indigo-800">Tarjeta</span>
+            <p id="pm-card-total" class="text-3xl font-black text-indigo-700">$0.00</p>
+          </div>
+        </div>
+
+        <div class="max-h-60 overflow-y-auto border rounded-lg">
+          <table class="w-full text-xs text-left">
+            <thead class="bg-gray-100 font-bold uppercase sticky top-0 text-gray-600 z-10">
+              <tr>
+                <th class="py-2.5 px-3 bg-gray-100">Folio</th>
+                <th class="py-2.5 px-3 bg-gray-100">Fecha</th>
+                <th class="py-2.5 px-3 bg-gray-100">Método</th>
+                <th class="py-2.5 px-3 text-right bg-gray-100">Subtotal</th>
+                <th class="py-2.5 px-3 text-right bg-gray-100">Ajuste</th>
+                <th class="py-2.5 px-3 text-right bg-gray-100">Total</th>
+                <th class="py-2.5 px-3 text-center bg-gray-100">Ticket</th>
+              </tr>
+            </thead>
+            <tbody id="payment-report-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- MODAL DE PAGO / COBRO                      -->
+  <!-- ========================================== -->
+  <div id="modal-payment" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border-t-8 border-coronaGold">
+      <h3 class="text-lg font-black text-coronaBlue mb-4 flex items-center">
+        <i class="fa-solid fa-cash-register text-coronaGold mr-2"></i>PROCESAR PAGO
+      </h3>
+      <div class="bg-gray-50 p-3 rounded-xl mb-4 flex justify-between items-center">
+        <span class="text-xs font-bold text-gray-500 uppercase">Total a Pagar:</span>
+        <span id="modal-pay-total" class="font-black text-3xl text-coronaBlue">$0.00</span>
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Método de Pago</label>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="btn-pay-cash" onclick="setPaymentMethod('EFECTIVO')" class="py-2.5 rounded-lg font-bold text-xs uppercase border-2 border-emerald-600 bg-emerald-50 text-emerald-700">
+            <i class="fa-solid fa-money-bill-wave mr-1.5"></i>Efectivo
+          </button>
+          <button id="btn-pay-card" onclick="setPaymentMethod('TARJETA')" class="py-2.5 rounded-lg font-bold text-xs uppercase border-2 border-gray-200 text-gray-600 hover:border-indigo-400">
+            <i class="fa-solid fa-credit-card mr-1.5"></i>Tarjeta
+          </button>
+        </div>
+      </div>
+
+      <!-- Efectivo -->
+      <div id="pay-cash-fields" class="space-y-3 mb-4">
+        <div>
+          <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Monto Recibido ($)</label>
+          <input type="number" id="pay-amount" oninput="calculateChange()" placeholder="0.00" class="w-full text-2xl font-bold border-2 border-emerald-500 rounded-lg px-3 py-2 text-right focus:outline-none">
+        </div>
+        <div class="flex justify-between items-center p-3 bg-emerald-50 rounded-lg border border-emerald-100">
+          <span class="text-xs font-bold text-emerald-800 uppercase">Cambio:</span>
+          <span id="pay-change" class="text-2xl font-black text-emerald-600">$0.00</span>
+        </div>
+      </div>
+
+      <!-- Tarjeta -->
+      <div id="pay-card-fields" class="space-y-3 mb-4 hidden">
+        <div class="p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-indigo-900 text-xs">
+          <span>Cobrar $ <strong id="card-charge-amount" class="underline">0.00</strong> en la terminal TPV antes de confirmar.</span>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Nº Autorización / Referencia</label>
+          <input type="text" id="pay-card-ref" placeholder="Ej. 987654" class="w-full border rounded-lg px-3 py-2 text-sm">
+        </div>
+      </div>
+
+      <div class="flex gap-2">
+        <button onclick="closePaymentModal()" class="flex-1 bg-gray-200 text-gray-800 py-2.5 rounded-lg font-bold text-xs uppercase">Cancelar</button>
+        <button onclick="processSale()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg font-black text-xs uppercase">Confirmar Venta</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PRODUCTO -->
+  <div id="modal-product" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 border-t-8 border-coronaBlue">
+      <h3 id="modal-prod-title" class="text-lg font-bold text-coronaBlue mb-4">Nuevo Producto</h3>
+      <input type="hidden" id="prod-id">
+      
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <div class="col-span-2">
+          <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Código de Barras</label>
+          <input type="text" id="prod-code" class="w-full border rounded-lg px-3 py-2 text-sm">
+        </div>
+        <div class="col-span-2">
+          <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Nombre del Producto</label>
+          <input type="text" id="prod-name" class="w-full border rounded-lg px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Categoría</label>
+          <select id="prod-category" class="w-full border rounded-lg px-3 py-2 text-sm">
+            <option value="Cervezas">Cervezas</option>
+            <option value="Refrescos">Refrescos</option>
+            <option value="Botanas">Botanas</option>
+            <option value="Licores">Licores</option>
+            <option value="Otros">Otros</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Stock</label>
+          <input type="number" id="prod-stock" class="w-full border rounded-lg px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Costo ($)</label>
+          <input type="number" step="0.01" id="prod-cost" class="w-full border rounded-lg px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Precio ($)</label>
+          <input type="number" step="0.01" id="prod-price" class="w-full border rounded-lg px-3 py-2 text-sm">
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2">
+        <button onclick="closeProductModal()" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg text-xs font-bold uppercase">Cancelar</button>
+        <button onclick="saveProduct()" class="bg-coronaBlue text-coronaGold px-4 py-2 rounded-lg text-xs font-bold uppercase">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contenedor dinámico de impresión (Ticket o Reporte) -->
+  <div id="print-area"></div>
+
+  <!-- MODULOS JAVASCRIPT -->
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/pos.js"></script>
+  <script src="js/inventory.js"></script>
+  <script src="js/corte.js"></script>
+  <script src="js/reports.js"></script>
+
+</body>
+</html>
